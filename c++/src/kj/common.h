@@ -3037,9 +3037,15 @@ public:
     KJ_IREQUIRE(size_ == other.size(), "copy requires arrays of the same size",
         size_, other.size());
     KJ_IREQUIRE(!intersects(other), "copy memory area must not overlap");
-    T* __restrict__ dst = begin();
-    const T* __restrict__ src = other.begin();
-    for (size_t s = size_, i = 0; i < s; i++) { dst[i] = src[i]; }
+    if constexpr (canMemcpy<T>()) {
+      // Compilers don't reliably turn the loop below into memcpy(), and below -O2 it stays a
+      // byte-at-a-time loop.
+      if (size_ != 0) { memcpy(ptr, other.begin(), size_ * sizeof(T)); }
+    } else {
+      T* __restrict__ dst = begin();
+      const T* __restrict__ src = other.begin();
+      for (size_t s = size_, i = 0; i < s; i++) { dst[i] = src[i]; }
+    }
   }
 
   inline void write(kj::ArrayPtr<const T> other) {

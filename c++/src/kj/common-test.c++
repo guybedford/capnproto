@@ -1026,6 +1026,32 @@ KJ_TEST("ArrayPtr::copyFrom") {
   KJ_EXPECT(arrayPtr(arr2) == arrayPtr(arr3));
 }
 
+KJ_TEST("ArrayPtr::copyFrom non-trivially-copyable") {
+  struct CountingCopy {
+    int value = 0;
+    int copies = 0;
+    CountingCopy() = default;
+    CountingCopy(int value): value(value) {}
+    CountingCopy& operator=(const CountingCopy& other) {
+      value = other.value;
+      ++copies;
+      return *this;
+    }
+  };
+  static_assert(!canMemcpy<CountingCopy>());
+
+  CountingCopy arr1[3];
+  CountingCopy arr2[] = {1, 2, 3};
+  arrayPtr(arr1).copyFrom(arr2);
+  for (auto i: kj::indices(arr1)) {
+    KJ_EXPECT(arr1[i].value == arr2[i].value);
+    KJ_EXPECT(arr1[i].copies == 1);
+  }
+
+  ArrayPtr<int> empty;
+  empty.copyFrom(ArrayPtr<const int>());
+}
+
 // Verifies the expected values of kj::isDisallowedInCoroutine<T>
 
 struct DisallowedInCoroutineStruct {
